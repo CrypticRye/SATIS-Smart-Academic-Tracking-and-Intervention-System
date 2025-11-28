@@ -39,31 +39,31 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified', 'can:access-student-portal'])->group(function () {
 
     Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
+        return Inertia::render('Student/Dashboard');
     })->name('dashboard');
 
     Route::get('/interventions-feed', function () {
-        return Inertia::render('InterventionFeedback');
+        return Inertia::render('Student/InterventionFeedback');
     })->name('interventions-feed');
 
     Route::get('/subject-at-risk', function () {
-        return Inertia::render('SubjectRisk');
+        return Inertia::render('Student/SubjectRisk');
     })->name('subject-at-risk');
 
     Route::get('/learn-more', function () {
-        return Inertia::render('LearnMore');
+        return Inertia::render('Student/LearnMore');
     })->name('learn-more');
 
     Route::get('/attendance', function () {
-        return Inertia::render('Attendance');
+        return Inertia::render('Student/Attendance');
     })->name('attendance');
 
     Route::get('/analytics', function () {
-        return Inertia::render('Analytics/Index');
+        return Inertia::render('Student/Analytics/Index');
     })->name('analytics.index');
 
     Route::get('/analytics/{subject_id}', function ($subject_id) {
-        return Inertia::render('Analytics/Show', [
+        return Inertia::render('Student/Analytics/Show', [
             'subject_id' => $subject_id,
         ]);
     })->name('analytics.show');
@@ -118,6 +118,10 @@ Route::middleware(['auth', 'verified', 'can:access-teacher-portal'])
             // You'll need to create a 'Teacher/Interventions.jsx' component for this
             return Inertia::render('Teacher/Interventions');
         })->name('interventions.index');
+
+        // routes/web.php inside the 'teacher' group
+        Route::post('/interventions', [App\Http\Controllers\Teacher\InterventionController::class, 'store'])
+            ->name('interventions.store');
     });
 
 /*

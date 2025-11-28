@@ -27,6 +27,7 @@ Route::get('/health', function () {
 });
 
 Route::post('login', [AuthController::class, 'login']);
+
 Route::middleware('auth:sanctum')->get('user', function (Request $req) {
     return $req->user();
 });
