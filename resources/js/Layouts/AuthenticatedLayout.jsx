@@ -7,6 +7,7 @@ import NotificationBadge, {
     NotificationDot,
 } from "@/Components/NotificationBadge";
 import NotificationDropdown from "@/Components/NotificationDropdown";
+import DarkModeToggle from "@/Components/DarkModeToggle";
 import { Link, usePage } from "@inertiajs/react";
 import UserPicture from "../../assets/user.png";
 import {
@@ -82,7 +83,7 @@ export default function AuthenticatedLayout({ children }) {
 
     // ✅ Optimized Sidebar Component
     const Sidebar = () => (
-        <aside className="fixed left-0 top-0 w-64 h-screen flex-col bg-white text-black shadow-lg z-40 hidden lg:flex">
+        <aside className="fixed left-0 top-0 w-64 h-screen flex-col bg-white dark:bg-gray-800 text-black dark:text-gray-100 shadow-lg z-40 hidden lg:flex">
             {/* Logo Section */}
             <div className="flex items-center justify-center h-20 border-b-2 border-primary">
                 <Link href={route("dashboard")}>
@@ -168,28 +169,17 @@ export default function AuthenticatedLayout({ children }) {
 
     // ✅ Main Layout
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
             <Sidebar />
 
             <div className="flex flex-col flex-1 lg:pl-64">
                 {/* Top Navigation */}
-                <nav className="sticky top-0 z-30 bg-white shadow-sm">
+                <nav className="sticky top-0 z-30 bg-white dark:bg-gray-800 shadow-sm">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex justify-between h-16">
-                            {/* Left Side: Search Bar */}
-                            <div className="flex-1 flex items-center">
-                                <div className="flex-1 w-full max-w-lg">
-                                    <input
-                                        type="text"
-                                        placeholder="Search..."
-                                        className="w-full px-4 py-2 border border-gray-400 text-gray-800 bg-gray-50 rounded-full focus:outline-none focus:ring-2 focus:ring-gray-300"
-                                        // className="w-full px-4 py-2 border border-pink-400 text-gray-800 bg-white rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-                                    />
-                                </div>
-                            </div>
-
+                        <div className="flex justify-end h-16">
                             {/* Right Side: Icons & User Dropdown */}
                             <div className="hidden sm:flex sm:items-center sm:ml-6">
+                                <DarkModeToggle className="mr-3" />
                                 <NotificationDropdown />
 
                                 <div className="ml-3 relative">
@@ -309,7 +299,9 @@ export default function AuthenticatedLayout({ children }) {
                 </nav>
 
                 {/* Page Content */}
-                <main className="flex-1 p-6">{children}</main>
+                <main className="flex-1 p-6 dark:text-gray-100">
+                    {children}
+                </main>
             </div>
         </div>
     );

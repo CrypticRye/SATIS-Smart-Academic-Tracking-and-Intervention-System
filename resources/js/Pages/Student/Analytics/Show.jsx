@@ -346,9 +346,36 @@ const QuarterlyGradesCards = ({ data }) => {
     );
 };
 
-// Grade Breakdown Table
+// Grade Breakdown - split into three sections (Written Works, Performance Task, Quarterly Exam)
 const GradeBreakdown = ({ data }) => {
-    if (!data || data.length === 0) {
+    // Normalize data array
+    const items = Array.isArray(data) ? data : [];
+
+    // Helper to match category/title to buckets
+    const matchBucket = (item, keywords) => {
+        const text = (
+            (item.category || item.type || item.name || "") + ""
+        ).toLowerCase();
+
+        return keywords.some((k) => text.includes(k));
+    };
+
+    const writtenWorks = items.filter((it) =>
+        matchBucket(it, ["written", "written works", "written-work"])
+    );
+
+    const performanceTasks = items.filter((it) =>
+        matchBucket(it, ["performance", "performance task", "performance-t"])
+    );
+
+    const quarterlyExams = items.filter((it) =>
+        matchBucket(it, ["quarterly exam", "quarterly", "exam"])
+    );
+
+    // Fallback: if categories are empty but items exist, distribute by item.category if available
+    const hasAny = items.length > 0;
+
+    if (!hasAny) {
         return (
             <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h3 className="text-xl font-semibold text-gray-800 mb-4">
@@ -365,47 +392,78 @@ const GradeBreakdown = ({ data }) => {
         );
     }
 
+    // Render function for a single card
+    const renderCard = (title, list, emptyMessage) => (
+        <div className="bg-gray-50 rounded-xl p-3 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-gray-800">{title}</h4>
+                <span className="text-xs text-gray-500">
+                    {list.length} items
+                </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2">
+                {list.length === 0 ? (
+                    <div className="h-full flex items-center justify-center p-4">
+                        <div className="text-center">
+                            <p className="text-sm text-gray-500">
+                                {emptyMessage}
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    list.map((item) => (
+                        <div
+                            key={item.id || `${item.name}-${item.createdAt}`}
+                            className="flex items-center justify-between p-2 bg-white rounded-lg shadow-sm"
+                        >
+                            <div className="min-w-0">
+                                <p className="font-medium text-gray-800 truncate">
+                                    {item.name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {item.createdAt} • Q{item.quarter}
+                                </p>
+                            </div>
+                            <div className="text-right ml-4">
+                                <p className="text-sm font-bold text-gray-800">
+                                    {item.score}/{item.totalScore}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {item.percentage}%
+                                </p>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+
     return (
         <div className="bg-white rounded-2xl shadow-lg p-6">
             <h3 className="text-xl font-semibold text-gray-800 mb-4">
                 Grade Breakdown
             </h3>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                {data.map((item) => (
-                    <div
-                        key={item.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                    >
-                        <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-800 truncate">
-                                {item.name}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <span>Q{item.quarter}</span>
-                                <span>•</span>
-                                <span>{item.createdAt}</span>
-                            </div>
-                        </div>
-                        <div className="text-right ml-4">
-                            <p
-                                className={`text-lg font-bold ${
-                                    item.percentage >= 90
-                                        ? "text-green-600"
-                                        : item.percentage >= 80
-                                        ? "text-blue-600"
-                                        : item.percentage >= 75
-                                        ? "text-yellow-600"
-                                        : "text-red-600"
-                                }`}
-                            >
-                                {item.score}/{item.totalScore}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                                {item.percentage}%
-                            </p>
-                        </div>
-                    </div>
-                ))}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {renderCard(
+                    "Written Works",
+                    writtenWorks,
+                    "No written works recorded yet."
+                )}
+
+                {renderCard(
+                    "Performance Task",
+                    performanceTasks,
+                    "No performance tasks recorded yet."
+                )}
+
+                {renderCard(
+                    "Quarterly Exam",
+                    quarterlyExams,
+                    "Quarterly exam has not been started yet."
+                )}
             </div>
         </div>
     );

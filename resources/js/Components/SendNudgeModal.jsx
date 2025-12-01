@@ -8,6 +8,7 @@ import {
     CheckCircle2,
     AlertCircle,
 } from "lucide-react";
+import showToast from "@/Utils/toast";
 
 const DEFAULT_MESSAGES = [
     "Keep up the great work! 💪 Remember to stay on top of your assignments and don't hesitate to reach out if you need help.",
@@ -21,7 +22,6 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
     const [customMessage, setCustomMessage] = useState("");
     const [useCustom, setUseCustom] = useState(false);
     const [isSending, setIsSending] = useState(false);
-    const [result, setResult] = useState(null); // { type: 'success' | 'error', message: string }
 
     if (!isOpen) return null;
 
@@ -29,12 +29,11 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
         const finalMessage = useCustom ? customMessage.trim() : message;
 
         if (!finalMessage) {
-            setResult({ type: "error", message: "Please enter a message." });
+            showToast.error("Please enter a message.");
             return;
         }
 
         setIsSending(true);
-        setResult(null);
 
         router.post(
             route("teacher.classes.nudge", subject.id),
@@ -44,24 +43,20 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
                 onSuccess: (page) => {
                     const flash = page.props?.flash;
                     if (flash?.success) {
-                        setResult({ type: "success", message: flash.success });
+                        showToast.success(flash.success);
                     } else if (flash?.error) {
-                        setResult({ type: "error", message: flash.error });
+                        showToast.error(flash.error);
                     } else {
-                        setResult({
-                            type: "success",
-                            message: "Nudge sent successfully!",
-                        });
+                        showToast.success("Nudge sent successfully!");
                     }
                     setIsSending(false);
+                    handleClose();
                 },
                 onError: (errors) => {
-                    setResult({
-                        type: "error",
-                        message:
-                            errors.message ||
-                            "Failed to send nudge. Please try again.",
-                    });
+                    showToast.error(
+                        errors.message ||
+                            "Failed to send nudge. Please try again."
+                    );
                     setIsSending(false);
                 },
             }
@@ -69,7 +64,6 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
     };
 
     const handleClose = () => {
-        setResult(null);
         setMessage(DEFAULT_MESSAGES[0]);
         setCustomMessage("");
         setUseCustom(false);
@@ -113,33 +107,7 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
 
                 {/* Body */}
                 <div className="p-6">
-                    {/* Result Alert */}
-                    {result && (
-                        <div
-                            className={`mb-4 p-4 rounded-lg flex items-start gap-3 ${
-                                result.type === "success"
-                                    ? "bg-green-50 border border-green-200"
-                                    : "bg-red-50 border border-red-200"
-                            }`}
-                        >
-                            {result.type === "success" ? (
-                                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                            ) : (
-                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                            )}
-                            <p
-                                className={`text-sm ${
-                                    result.type === "success"
-                                        ? "text-green-700"
-                                        : "text-red-700"
-                                }`}
-                            >
-                                {result.message}
-                            </p>
-                        </div>
-                    )}
-
-                    <p className="text-gray-600 text-sm mb-4">
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
                         Send an encouraging message to all{" "}
                         <span className="font-semibold">
                             {subject?.student_count ?? 0}
@@ -153,8 +121,8 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
                             onClick={() => setUseCustom(false)}
                             className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                                 !useCustom
-                                    ? "bg-indigo-100 text-indigo-700 font-medium"
-                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                    ? "bg-indigo-100 text-indigo-700 font-medium dark:bg-indigo-900 dark:text-indigo-200"
+                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
                             }`}
                         >
                             Quick Messages
@@ -163,8 +131,8 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
                             onClick={() => setUseCustom(true)}
                             className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                                 useCustom
-                                    ? "bg-indigo-100 text-indigo-700 font-medium"
-                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                    ? "bg-indigo-100 text-indigo-700 font-medium dark:bg-indigo-900 dark:text-indigo-200"
+                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
                             }`}
                         >
                             Custom Message
@@ -209,36 +177,34 @@ const SendNudgeModal = ({ isOpen, onClose, subject }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 flex items-center justify-end gap-3">
                     <button
                         onClick={handleClose}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                     >
-                        {result?.type === "success" ? "Done" : "Cancel"}
+                        Cancel
                     </button>
-                    {result?.type !== "success" && (
-                        <button
-                            onClick={handleSend}
-                            disabled={
-                                isSending ||
-                                (!useCustom && !message) ||
-                                (useCustom && !customMessage.trim())
-                            }
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSending ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Sending...
-                                </>
-                            ) : (
-                                <>
-                                    <Send className="w-4 h-4" />
-                                    Send to All Students
-                                </>
-                            )}
-                        </button>
-                    )}
+                    <button
+                        onClick={handleSend}
+                        disabled={
+                            isSending ||
+                            (!useCustom && !message) ||
+                            (useCustom && !customMessage.trim())
+                        }
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isSending ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Sending...
+                            </>
+                        ) : (
+                            <>
+                                <Send className="w-4 h-4" />
+                                Send to All Students
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
         </div>

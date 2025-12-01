@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { router } from "@inertiajs/react";
 import TeacherLayout from "../../Layouts/TeacherLayout";
 import { Head } from "@inertiajs/react";
 import { useLoading } from "@/Context/LoadingContext";
@@ -6,6 +7,7 @@ import { LayoutGrid, List, Check, XIcon, Clock, History } from "lucide-react";
 import NavLink from "@/Components/NavLink";
 import SeatingGrid from "@/Components/SeatingGrid";
 import StudentList from "@/Components/StudentList";
+import showToast from "@/Utils/toast";
 
 const GRID_ROWS = 5;
 const GRID_COLS = 10;
@@ -199,14 +201,28 @@ const Attendance = ({ classes = [], rosters = {} }) => {
     const handleSubmit = () => {
         if (!selectedClassId) return;
 
-        console.log("Submitting Attendance:", {
+        const payload = {
             classId: selectedClassId,
             date: currentDate,
-            students,
+            students: students.map((s) => ({ id: s.id, status: s.status })),
             seatLayout,
-        });
+        };
 
-        alert(`Attendance saved for ${stats.total} students.`);
+        startLoading();
+
+        router.post(route("teacher.attendance.store"), payload, {
+            preserveScroll: true,
+            onSuccess: () => {
+                showToast.success(
+                    `Attendance saved for ${stats.total} students.`
+                );
+                stopLoading();
+            },
+            onError: (errors) => {
+                showToast.error("Failed to save attendance. Please try again.");
+                stopLoading();
+            },
+        });
     };
 
     const hasClasses = classes.length > 0;

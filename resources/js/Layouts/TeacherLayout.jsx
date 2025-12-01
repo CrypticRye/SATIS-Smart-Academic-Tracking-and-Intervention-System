@@ -6,6 +6,7 @@ import ResponsiveNavLink from "../Components/ResponsiveNavLink";
 import NotificationBadge, {
     NotificationDot,
 } from "../Components/NotificationBadge";
+import DarkModeToggle from "@/Components/DarkModeToggle";
 import { Link, usePage } from "@inertiajs/react";
 import UserPicture from "../../assets/user.png";
 import { LoadingProvider } from "../Context/LoadingContext";
@@ -67,9 +68,9 @@ export default function TeacherLayout({ children }) {
 
     return (
         <LoadingProvider>
-            <div className="min-h-screen bg-gray-100">
+            <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
                 {/* --- Top Navigation Bar --- */}
-                <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+                <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex justify-between h-16">
                             {/* 1. Logo & Main Nav Links */}
@@ -149,13 +150,15 @@ export default function TeacherLayout({ children }) {
                                               )
                                             : "#"
                                     }
-                                    className="relative p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                                    className="relative p-2 rounded-full text-gray-500 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700"
                                 >
                                     <Bell size={24} />
                                     <NotificationBadge
                                         count={pendingInterventions}
                                     />
                                 </Link>
+
+                                <DarkModeToggle className="ml-3" />
 
                                 <div className="ml-3 relative">
                                     <Dropdown>

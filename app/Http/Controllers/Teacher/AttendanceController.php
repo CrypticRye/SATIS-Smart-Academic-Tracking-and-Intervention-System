@@ -283,6 +283,52 @@ class AttendanceController extends Controller
         ]);
     }
 
+    /**
+     * Persist attendance records for a class on a given date.
+     */
+    public function store(Request $request)
+    {
+        $teacher = $request->user();
+
+        $data = $request->validate([
+            'classId' => ['required', 'integer', 'exists:subjects,id'],
+            'date' => ['required', 'date'],
+            'students' => ['required', 'array'],
+            'students.*.id' => ['required', 'integer', 'exists:enrollments,id'],
+            'students.*.status' => ['required', 'string'],
+        ]);
+
+        $subject = Subject::findOrFail($data['classId']);
+
+        // Ensure the teacher owns this subject
+        if ($subject->user_id !== $teacher->id) {
+            return response()->json(['message' => 'Unauthorized to modify attendance for this class.'], 403);
+        }
+
+        $date = $data['date'];
+
+        foreach ($data['students'] as $s) {
+            $enrollment = $subject->enrollments->firstWhere('id', $s['id']);
+
+            // If the enrollment does not belong to this subject, skip it
+            if (!$enrollment) {
+                continue;
+            }
+
+            AttendanceRecord::updateOrCreate(
+                [
+                    'enrollment_id' => $enrollment->id,
+                    'date' => $date,
+                ],
+                [
+                    'status' => $s['status'],
+                ]
+            );
+        }
+
+        return response()->json(['message' => 'Attendance saved'], 200);
+    }
+
     private function avatarFor(string $fullName): string
     {
         $name = trim($fullName);

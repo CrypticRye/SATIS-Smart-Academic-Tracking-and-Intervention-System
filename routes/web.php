@@ -110,6 +110,9 @@ Route::middleware(['auth', 'verified', 'can:access-teacher-portal'])
             ->name('attendance.log.show');
         Route::get('/attendance/log/{subject}/export', [AttendanceController::class, 'export'])
             ->name('attendance.log.export');
+        // Save attendance (persist records)
+        Route::post('/attendance', [AttendanceController::class, 'store'])
+            ->name('attendance.store');
 
         // --- (NEW) MY CLASSES ROUTE ---
         // URL: /teacher/classes
