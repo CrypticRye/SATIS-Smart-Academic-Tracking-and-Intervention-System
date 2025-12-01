@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Enrollment;
 use App\Models\Intervention;
-use App\Models\Student; // Assuming you are linking via Student ID for now
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 
@@ -13,21 +13,31 @@ class InterventionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'student_id' => 'required|exists:students,id', // Or enrollment_id
+            'enrollment_id' => 'required|exists:enrollments,id',
             'type' => 'required|string',
             'notes' => 'nullable|string',
         ]);
 
-        // logic to find the enrollment_id based on student_id if needed
-        // For this example, we assume we are saving directly linked to the student or enrollment
+        $enrollment = Enrollment::with(['subject', 'user'])->findOrFail($validated['enrollment_id']);
 
-        Intervention::create([
-            'enrollment_id' => $validated['student_id'], // Adjust logic to match your Schema relations
-            'type' => $validated['type'],
-            'notes' => $validated['notes'],
-            'status' => 'active',
-        ]);
+        if (optional($enrollment->subject)->user_id !== $request->user()->id) {
+            abort(403, 'You are not authorized to start an intervention for this student.');
+        }
 
-        return Redirect::back()->with('success', 'Intervention started successfully.');
+        Intervention::updateOrCreate(
+            [
+                'enrollment_id' => $enrollment->id,
+                'status' => 'active',
+            ],
+            [
+                'type' => $validated['type'],
+                'notes' => $validated['notes'] ?? '',
+            ]
+        );
+
+        return Redirect::back()->with(
+            'success',
+            sprintf('Intervention for %s is now active.', optional($enrollment->user)->name ?? 'the student')
+        );
     }
 }

@@ -3,6 +3,10 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 import Dropdown from "@/Components/Dropdown";
 import NavLink from "@/Components/NavLink"; // This is the Breeze NavLink
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink";
+import NotificationBadge, {
+    NotificationDot,
+} from "@/Components/NotificationBadge";
+import NotificationDropdown from "@/Components/NotificationDropdown";
 import { Link, usePage } from "@inertiajs/react";
 import UserPicture from "../../assets/user.png";
 import {
@@ -20,9 +24,12 @@ import {
 } from "lucide-react";
 
 export default function AuthenticatedLayout({ children }) {
-    const { auth } = usePage().props;
+    const { auth, notifications } = usePage().props;
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
+
+    // Get unread notification count from shared notifications
+    const unreadCount = notifications?.unreadCount || 0;
 
     // --- Sidebar Menu Items (FIXED) ---
     // I've added 'activeCheck' for robust highlighting (e.g., 'analytics.*')
@@ -33,36 +40,43 @@ export default function AuthenticatedLayout({ children }) {
             label: "Dashboard",
             destination: "dashboard",
             activeCheck: "dashboard",
+            showBadge: false,
         },
         {
             icon: <Lightbulb size={24} />,
             label: "Learn More",
             destination: "learn-more",
             activeCheck: "learn-more",
+            showBadge: false,
         }, // Assuming this is a route
         {
             icon: <PenLine size={24} />,
             label: "Attendance",
             destination: "attendance",
             activeCheck: "attendance",
+            showBadge: false,
         }, // Assuming this is a route
         {
             icon: <BarChart3 size={24} />, // Changed icon
             label: "Performance Analytics", // Changed label
             destination: "analytics.index", // 1. FIXED DESTINATION
             activeCheck: "analytics.*", // 2. FIXED ACTIVE CHECK
+            showBadge: false,
         },
         {
             icon: <Newspaper size={24} />,
             label: "Interventions & Feed",
             destination: "interventions-feed",
             activeCheck: "interventions-feed",
+            showBadge: true, // Show notification badge on interventions
+            badgeCount: unreadCount,
         },
         {
             icon: <Book size={24} />,
             label: "Subject at Risk",
             destination: "subject-at-risk",
             activeCheck: "subject-at-risk",
+            showBadge: false,
         },
     ];
 
@@ -115,8 +129,23 @@ export default function AuthenticatedLayout({ children }) {
                                 }
                             `}
                         >
-                            {item.icon}
-                            <p>{item.label}</p>
+                            <div className="relative">
+                                {item.icon}
+                                {item.showBadge && item.badgeCount > 0 && (
+                                    <NotificationDot
+                                        show={true}
+                                        className="absolute -top-1 -right-1"
+                                    />
+                                )}
+                            </div>
+                            <p className="flex-1">{item.label}</p>
+                            {item.showBadge && item.badgeCount > 0 && (
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full animate-pulse">
+                                    {item.badgeCount > 99
+                                        ? "99+"
+                                        : item.badgeCount}
+                                </span>
+                            )}
                         </NavLink>
                     );
                 })}
@@ -161,9 +190,7 @@ export default function AuthenticatedLayout({ children }) {
 
                             {/* Right Side: Icons & User Dropdown */}
                             <div className="hidden sm:flex sm:items-center sm:ml-6">
-                                <button className="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700">
-                                    <Bell size={24} />
-                                </button>
+                                <NotificationDropdown />
 
                                 <div className="ml-3 relative">
                                     <Dropdown>
@@ -240,7 +267,17 @@ export default function AuthenticatedLayout({ children }) {
                                     href={route(item.destination)}
                                     active={route().current(item.activeCheck)} // Use activeCheck here too
                                 >
-                                    {item.label}
+                                    <div className="flex items-center justify-between w-full">
+                                        <span>{item.label}</span>
+                                        {item.showBadge &&
+                                            item.badgeCount > 0 && (
+                                                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                                                    {item.badgeCount > 99
+                                                        ? "99+"
+                                                        : item.badgeCount}
+                                                </span>
+                                            )}
+                                    </div>
                                 </ResponsiveNavLink>
                             ))}
                         </div>

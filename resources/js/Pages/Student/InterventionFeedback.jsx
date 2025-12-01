@@ -1,247 +1,722 @@
-import React, { useState } from 'react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
-import { 
-    AlertTriangle, 
-    BarChart2, 
-    CheckSquare, 
-    Square, 
-    MessageSquare, 
-    Mail, 
-    Calendar, 
+import React, { useState, useEffect, useRef } from "react";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import { Head, router, usePage } from "@inertiajs/react";
+import {
+    AlertTriangle,
+    BarChart2,
+    CheckSquare,
+    Square,
+    MessageSquare,
+    Bell,
     ChevronDown,
-    ListTodo
-} from 'lucide-react';
+    ChevronUp,
+    ListTodo,
+    CheckCircle2,
+    Clock,
+    User,
+    BookOpen,
+    Inbox,
+    Target,
+    TrendingUp,
+    AlertCircle,
+    Loader2,
+} from "lucide-react";
 
-// --- Mock Data (Replace with your actual data) ---
-const summaryStats = [
-    { label: 'Active Interventions', value: '2' },
-    { label: 'Total Feedback', value: '3' },
-    { label: 'Resolved', value: '1' },
-    { label: 'Success Rate', value: '78%' },
-];
-
-const interventions = [
-    {
-        id: 1,
-        title: 'Earth and Life Science',
-        startDate: 'Started 3 days ago',
-        priority: 'High Priority',
-        priorityLevel: 'High',
-        description: "Student's science performance has dropped to 68%, showing difficulty with recent lab work and theoretical concepts. Missing 3 assignments and attendance at 78%. Requires immediate teacher consultation and personalized tutoring.",
-        stats: [
-            { label: 'Current Grade', value: '68%' },
-            { label: 'Attendance', value: '78%' },
-            { label: 'Missing Work', value: '3' },
-        ],
-        actionPlan: [
-            { id: 1, text: 'Schedule meeting with Science teacher this week.', completed: false, status: 'Update Progress' },
-            { id: 2, text: 'Enroll in after-school tutoring program.', completed: true },
-            { id: 3, text: 'Complete missing lab reports by Friday.', completed: false },
-        ]
-    },
-    {
-        id: 2,
-        title: 'Statistics & Probability',
-        startDate: 'Started 2 weeks ago',
-        priority: 'Medium Priority',
-        priorityLevel: 'Medium',
-        description: 'Irregular attendance in Mathematics (85%) affecting comprehension of sequential topics. Grade currently at 72%, showing slow decline. Early intervention recommended to prevent further issues.',
-        stats: [
-            { label: 'Current Grade', value: '72%' },
-            { label: 'Attendance', value: '85%' },
-            { label: 'Missing Work', value: '2' },
-        ],
-        actionPlan: [
-            { id: 1, text: 'Review module on sequential topics.', completed: true },
-            { id: 2, text: 'Attend next 3 classes without fail.', completed: false, status: 'In Progress' },
-        ]
-    }
-];
-
-const recentFeedback = [
-    { id: 1, from: 'Ms. Science', subject: 'Earth & Life Science', time: '2 days ago', comment: 'N/A needs to focus on lab safety procedures. Shows good curiosity but needs to follow instructions more carefully.' },
-    { id: 2, from: 'Mr. Math', subject: 'Statistics & Probability', time: '4 days ago', comment: 'Great improvement in problem-solving! Keep practicing the algebraic equations we discussed.' },
-    { id: 3, from: 'Ms. English', subject: 'Oral Communication', time: '1 week ago', comment: 'Excellent essay on Shakespeare. Your analytical skills are developing well. Keep up the good work!' },
-];
-// --- End of Mock Data ---
-
-
-// --- Reusable Components ---
-
-// Filter Tabs
-const FilterTabs = () => {
-    const [activeTab, setActiveTab] = useState('All');
-    const tabs = ['All', 'Critical', 'In Progress', 'Completed'];
+// --- Filter Tabs Component ---
+const FilterTabs = ({ activeTab, setActiveTab, counts }) => {
+    const tabs = [
+        { key: "all", label: "All", count: counts.all },
+        { key: "active", label: "Active", count: counts.active },
+        { key: "completed", label: "Completed", count: counts.completed },
+    ];
 
     return (
         <div className="flex items-center space-x-2 rounded-full bg-pink-100 p-1.5">
             {tabs.map((tab) => (
                 <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
-                        activeTab === tab
-                            ? 'bg-white text-pink-700 shadow-md'
-                            : 'text-gray-600 hover:bg-white/50'
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-2 ${
+                        activeTab === tab.key
+                            ? "bg-white text-pink-700 shadow-md"
+                            : "text-gray-600 hover:bg-white/50"
                     }`}
                 >
-                    {tab}
+                    {tab.label}
+                    {tab.count > 0 && (
+                        <span
+                            className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                activeTab === tab.key
+                                    ? "bg-pink-100 text-pink-700"
+                                    : "bg-gray-200 text-gray-600"
+                            }`}
+                        >
+                            {tab.count}
+                        </span>
+                    )}
                 </button>
             ))}
         </div>
     );
 };
 
-// Top Stat Card
-const StatCard = ({ label, value }) => (
-    <div className="bg-white rounded-2xl shadow p-4 text-center">
-        <p className="text-3xl font-bold text-pink-600">{value}</p>
-        <p className="text-sm font-medium text-gray-600 mt-1">{label}</p>
-    </div>
-);
+// --- Stat Card Component ---
+const StatCard = ({ label, value, icon: Icon, color = "pink" }) => {
+    const colorClasses = {
+        pink: "text-pink-600 bg-pink-100",
+        green: "text-green-600 bg-green-100",
+        blue: "text-blue-600 bg-blue-100",
+        orange: "text-orange-600 bg-orange-100",
+    };
 
-// Priority Tag
+    return (
+        <div className="bg-white rounded-2xl shadow-md p-4 flex items-center gap-4">
+            <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
+                <Icon size={24} />
+            </div>
+            <div>
+                <p className="text-2xl font-bold text-gray-800">{value}</p>
+                <p className="text-sm font-medium text-gray-500">{label}</p>
+            </div>
+        </div>
+    );
+};
+
+// --- Priority Tag Component ---
 const PriorityTag = ({ level }) => {
     const colors = {
-        High: 'bg-red-100 text-red-700 border border-red-200',
-        Medium: 'bg-yellow-100 text-yellow-700 border border-yellow-200',
-        Low: 'bg-green-100 text-green-700 border border-green-200',
+        High: "bg-red-100 text-red-700 border border-red-200",
+        Medium: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+        Low: "bg-green-100 text-green-700 border border-green-200",
     };
+    const icons = {
+        High: AlertTriangle,
+        Medium: BarChart2,
+        Low: CheckCircle2,
+    };
+    const Icon = icons[level];
+
     return (
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors[level]}`}>
-            {level} Priority
+        <span
+            className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${colors[level]}`}
+        >
+            <Icon size={12} />
+            {level}
         </span>
     );
 };
 
-// Intervention Card Mini-Stat
-const MiniStat = ({ label, value }) => (
-    <div className="flex-1 bg-pink-50 rounded-lg p-3 text-center border border-pink-100">
-        <p className="text-xl font-bold text-pink-700">{value}</p>
-        <p className="text-xs text-gray-600">{label}</p>
-    </div>
-);
+// --- Status Badge Component ---
+const StatusBadge = ({ status }) => {
+    const styles = {
+        active: "bg-blue-100 text-blue-700 border-blue-200",
+        completed: "bg-green-100 text-green-700 border-green-200",
+        pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    };
 
-// Main Intervention Card
-const InterventionCard = ({ item, tag, stat }) => (
-    <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-pink-200">
-        <div className="flex justify-between items-start mb-3">
-            <div>
-                <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    {item.priorityLevel === 'High' && <AlertTriangle className="text-red-500" size={24} />}
-                    {item.priorityLevel === 'Medium' && <BarChart2 className="text-yellow-500" size={24} />}
-                    {item.title}
-                </h3>
-                <p className="text-xs text-gray-500">{item.startDate}</p>
+    return (
+        <span
+            className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                styles[status] || styles.pending
+            }`}
+        >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+        </span>
+    );
+};
+
+// --- Mini Stat Component ---
+const MiniStat = ({ label, value, color = "pink" }) => {
+    const bgColors = {
+        pink: "bg-pink-50 border-pink-100",
+        red: "bg-red-50 border-red-100",
+        yellow: "bg-yellow-50 border-yellow-100",
+        green: "bg-green-50 border-green-100",
+    };
+
+    const textColors = {
+        pink: "text-pink-700",
+        red: "text-red-700",
+        yellow: "text-yellow-700",
+        green: "text-green-700",
+    };
+
+    return (
+        <div
+            className={`flex-1 rounded-lg p-3 text-center border ${bgColors[color]}`}
+        >
+            <p className={`text-xl font-bold ${textColors[color]}`}>
+                {value ?? "N/A"}
+            </p>
+            <p className="text-xs text-gray-600">{label}</p>
+        </div>
+    );
+};
+
+// --- Task Item Component ---
+const TaskItem = ({ task }) => {
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleComplete = () => {
+        if (task.completed || isLoading) return;
+
+        setIsLoading(true);
+        router.post(
+            route("interventions.tasks.complete", { task: task.id }),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setIsLoading(false),
+            }
+        );
+    };
+
+    return (
+        <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2 text-gray-700 flex-1">
+                <button
+                    onClick={handleComplete}
+                    disabled={task.completed || isLoading}
+                    className={`flex-shrink-0 transition-colors ${
+                        task.completed
+                            ? "text-pink-600"
+                            : "text-gray-400 hover:text-pink-500"
+                    }`}
+                >
+                    {isLoading ? (
+                        <Loader2 size={18} className="animate-spin" />
+                    ) : task.completed ? (
+                        <CheckSquare size={18} />
+                    ) : (
+                        <Square size={18} />
+                    )}
+                </button>
+                <span
+                    className={`text-sm ${
+                        task.completed ? "line-through text-gray-400" : ""
+                    }`}
+                >
+                    {task.text}
+                </span>
             </div>
-            <PriorityTag level={item.priorityLevel} />
         </div>
-        <p className="text-gray-700 mb-4">{item.description}</p>
-        <div className="flex gap-4 mb-5">
-            {item.stats.map(stat => <MiniStat key={stat.label} {...stat} />)}
-        </div>
-        
-        <h4 className="text-sm font-semibold text-gray-800 mb-2">ACTION PLAN</h4>
-        <div className="space-y-2">
-            {item.actionPlan.map(plan => (
-                <div key={plan.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-gray-700">
-                        {plan.completed ? <CheckSquare size={18} className="text-pink-600" /> : <Square size={18} className="text-gray-400" />}
-                        <span className={plan.completed ? 'line-through text-gray-500' : ''}>{plan.text}</span>
+    );
+};
+
+// --- Intervention Card Component ---
+const InterventionCard = ({ intervention }) => {
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    const gradeColor =
+        intervention.currentGrade !== null
+            ? intervention.currentGrade < 70
+                ? "red"
+                : intervention.currentGrade < 75
+                ? "yellow"
+                : "green"
+            : "pink";
+
+    const attendanceColor =
+        intervention.attendanceRate < 80
+            ? "red"
+            : intervention.attendanceRate < 90
+            ? "yellow"
+            : "green";
+
+    return (
+        <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100">
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-lg font-bold text-gray-800">
+                                {intervention.subjectName}
+                            </h3>
+                            <StatusBadge status={intervention.status} />
+                        </div>
+                        {intervention.subjectSection && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Section: {intervention.subjectSection}
+                            </p>
+                        )}
                     </div>
-                    {plan.status && (
-                        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-md">
-                            {plan.status}
+                    <PriorityTag level={intervention.priority} />
+                </div>
+
+                <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                    <span className="flex items-center gap-1">
+                        <User size={12} />
+                        {intervention.teacherName}
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <Clock size={12} />
+                        {intervention.startDate}
+                    </span>
+                    <span className="flex items-center gap-1 text-pink-600 font-medium">
+                        <Target size={12} />
+                        {intervention.typeLabel}
+                    </span>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5">
+                {/* Notes */}
+                {intervention.notes && (
+                    <p className="text-gray-600 text-sm mb-4 bg-gray-50 p-3 rounded-lg">
+                        {intervention.notes}
+                    </p>
+                )}
+
+                {/* Stats */}
+                <div className="flex gap-3 mb-4">
+                    <MiniStat
+                        label="Current Grade"
+                        value={
+                            intervention.currentGrade !== null
+                                ? `${intervention.currentGrade}%`
+                                : "N/A"
+                        }
+                        color={gradeColor}
+                    />
+                    <MiniStat
+                        label="Attendance"
+                        value={`${intervention.attendanceRate}%`}
+                        color={attendanceColor}
+                    />
+                    <MiniStat
+                        label="Missing Work"
+                        value={intervention.missingWork}
+                        color={intervention.missingWork > 0 ? "red" : "green"}
+                    />
+                </div>
+
+                {/* Tasks */}
+                {intervention.tasks.length > 0 && (
+                    <div>
+                        <button
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="flex items-center justify-between w-full text-sm font-semibold text-gray-800 mb-2 hover:text-pink-600 transition-colors"
+                        >
+                            <span className="flex items-center gap-2">
+                                <ListTodo size={16} />
+                                Action Plan ({intervention.completedTasks}/
+                                {intervention.totalTasks})
+                            </span>
+                            {isExpanded ? (
+                                <ChevronUp size={16} />
+                            ) : (
+                                <ChevronDown size={16} />
+                            )}
+                        </button>
+
+                        {isExpanded && (
+                            <div className="space-y-1 pl-1">
+                                {intervention.tasks.map((task) => (
+                                    <TaskItem key={task.id} task={task} />
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Progress bar */}
+                        <div className="mt-3">
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div
+                                    className="bg-pink-500 h-1.5 rounded-full transition-all duration-500"
+                                    style={{
+                                        width: `${
+                                            intervention.totalTasks > 0
+                                                ? (intervention.completedTasks /
+                                                      intervention.totalTasks) *
+                                                  100
+                                                : 0
+                                        }%`,
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {intervention.tasks.length === 0 && (
+                    <p className="text-sm text-gray-500 italic">
+                        No action plan assigned yet.
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// --- Feedback Item Component ---
+const FeedbackItem = ({ feedback, isHighlighted }) => {
+    const [isLoading, setIsLoading] = useState(false);
+    const itemRef = useRef(null);
+
+    // Scroll into view and animate when highlighted
+    useEffect(() => {
+        if (isHighlighted && itemRef.current) {
+            itemRef.current.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+            });
+        }
+    }, [isHighlighted]);
+
+    const typeIcons = {
+        feedback: MessageSquare,
+        nudge: Bell,
+        task: ListTodo,
+        alert: AlertCircle,
+    };
+
+    const typeColors = {
+        feedback: "text-blue-600 bg-blue-100",
+        nudge: "text-purple-600 bg-purple-100",
+        task: "text-green-600 bg-green-100",
+        alert: "text-red-600 bg-red-100",
+    };
+
+    const Icon = typeIcons[feedback.type] || MessageSquare;
+    const colorClass = typeColors[feedback.type] || typeColors.feedback;
+
+    const handleMarkRead = () => {
+        if (feedback.isRead || isLoading) return;
+
+        setIsLoading(true);
+        router.post(
+            route("feedback.read", { notification: feedback.id }),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setIsLoading(false),
+            }
+        );
+    };
+
+    return (
+        <div
+            ref={itemRef}
+            className={`p-4 rounded-xl border transition-colors ${
+                feedback.isRead
+                    ? "bg-white border-gray-100"
+                    : "bg-pink-50 border-pink-200"
+            } ${
+                isHighlighted
+                    ? "animate-highlight-blink ring-2 ring-pink-500"
+                    : ""
+            }`}
+        >
+            <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-lg ${colorClass}`}>
+                    <Icon size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2">
+                        <div>
+                            <p className="font-semibold text-gray-800 text-sm">
+                                {feedback.senderName}
+                            </p>
+                            {feedback.subjectName && (
+                                <p className="text-xs text-pink-600">
+                                    {feedback.subjectName}
+                                </p>
+                            )}
+                        </div>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                            {feedback.time}
                         </span>
+                    </div>
+                    {feedback.title && (
+                        <p className="font-medium text-gray-700 text-sm mt-1">
+                            {feedback.title}
+                        </p>
+                    )}
+                    <p className="text-sm text-gray-600 mt-1">
+                        {feedback.message}
+                    </p>
+                    {!feedback.isRead && (
+                        <button
+                            onClick={handleMarkRead}
+                            disabled={isLoading}
+                            className="text-xs text-pink-600 hover:text-pink-700 mt-2 font-medium flex items-center gap-1"
+                        >
+                            {isLoading ? (
+                                <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                                <CheckCircle2 size={12} />
+                            )}
+                            Mark as read
+                        </button>
                     )}
                 </div>
-            ))}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
-// Recent Feedback Card
-const RecentFeedbackCard = () => (
-    <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <MessageSquare size={22} className="text-pink-600" />
-            Recent Feedback
-        </h3>
-        <div className="space-y-4">
-            {recentFeedback.map(fb => (
-                <div key={fb.id}>
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="font-semibold text-gray-700">{fb.from}</span>
-                        <span className="text-xs text-gray-400">{fb.time}</span>
-                    </div>
-                    <p className="text-xs font-medium text-pink-600 mb-1">{fb.subject}</p>
-                    <p className="text-sm text-gray-600">{fb.comment}</p>
+// --- Recent Feedback Card Component ---
+const RecentFeedbackCard = ({ feedback, highlightId }) => {
+    const [showAll, setShowAll] = useState(false);
+
+    // Auto-expand if highlighted feedback is in the hidden portion
+    useEffect(() => {
+        if (highlightId && feedback.length > 3) {
+            const highlightIndex = feedback.findIndex(
+                (fb) => fb.id.toString() === highlightId
+            );
+            if (highlightIndex >= 3) {
+                setShowAll(true);
+            }
+        }
+    }, [highlightId, feedback]);
+
+    const displayedFeedback = showAll ? feedback : feedback.slice(0, 3);
+
+    if (feedback.length === 0) {
+        return (
+            <div className="bg-white rounded-2xl shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <MessageSquare size={20} className="text-pink-600" />
+                    Recent Feedback
+                </h3>
+                <div className="text-center py-6">
+                    <Inbox size={40} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-gray-500 text-sm">No feedback yet</p>
+                    <p className="text-gray-400 text-xs mt-1">
+                        Teacher feedback will appear here
+                    </p>
                 </div>
-            ))}
-        </div>
-        <button className="flex items-center gap-1.5 justify-center w-full mt-6 text-sm font-medium text-gray-700 hover:text-pink-600">
-            View More <ChevronDown size={16} />
-        </button>
-    </div>
-);
+            </div>
+        );
+    }
 
-// Quick Actions Card
-const QuickActionsCard = () => (
-    <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">
-            Quick Actions
-        </h3>
-        <div className="space-y-3">
-            <button className="w-full flex items-center gap-3 p-3 rounded-lg bg-pink-50 border border-pink-100 hover:bg-pink-100 transition-colors">
-                <Mail size={20} className="text-pink-600" />
-                <span className="font-medium text-gray-700">Email All Teachers</span>
-            </button>
-            <button className="w-full flex items-center gap-3 p-3 rounded-lg bg-pink-50 border border-pink-100 hover:bg-pink-100 transition-colors">
-                <Calendar size={20} className="text-pink-600" />
-                <span className="font-medium text-gray-700">Schedule Meeting</span>
-            </button>
+    return (
+        <div className="bg-white rounded-2xl shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <MessageSquare size={20} className="text-pink-600" />
+                Recent Feedback
+            </h3>
+            <div className="space-y-3">
+                {displayedFeedback.map((fb) => (
+                    <FeedbackItem
+                        key={fb.id}
+                        feedback={fb}
+                        isHighlighted={highlightId === fb.id.toString()}
+                    />
+                ))}
+            </div>
+            {feedback.length > 3 && (
+                <button
+                    onClick={() => setShowAll(!showAll)}
+                    className="flex items-center gap-1.5 justify-center w-full mt-4 text-sm font-medium text-gray-600 hover:text-pink-600 transition-colors"
+                >
+                    {showAll ? "Show Less" : `View All (${feedback.length})`}
+                    {showAll ? (
+                        <ChevronUp size={16} />
+                    ) : (
+                        <ChevronDown size={16} />
+                    )}
+                </button>
+            )}
         </div>
-    </div>
-);
+    );
+};
 
+// --- Empty State Component ---
+const EmptyState = ({ filter }) => {
+    const messages = {
+        all: {
+            title: "No Interventions Yet",
+            description:
+                "You're doing great! No interventions have been assigned to you.",
+            icon: CheckCircle2,
+            iconColor: "text-green-500",
+        },
+        active: {
+            title: "No Active Interventions",
+            description:
+                "You have no active interventions at the moment. Keep up the good work!",
+            icon: TrendingUp,
+            iconColor: "text-blue-500",
+        },
+        completed: {
+            title: "No Completed Interventions",
+            description: "Completed interventions will appear here.",
+            icon: Clock,
+            iconColor: "text-gray-400",
+        },
+    };
+
+    const msg = messages[filter] || messages.all;
+    const Icon = msg.icon;
+
+    return (
+        <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+            <Icon size={64} className={`mx-auto ${msg.iconColor} mb-4`} />
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                {msg.title}
+            </h3>
+            <p className="text-gray-500">{msg.description}</p>
+        </div>
+    );
+};
 
 // --- Main Page Component ---
-const InterventionFeedback = () => {
+const InterventionFeedback = ({
+    interventions = [],
+    stats = {},
+    recentFeedback = [],
+}) => {
+    const [activeTab, setActiveTab] = useState("all");
+    const { url } = usePage();
+
+    // Extract highlight parameter from URL
+    const urlParams = new URLSearchParams(url.split("?")[1] || "");
+    const highlightId = urlParams.get("highlight");
+
+    // Filter interventions based on active tab
+    const filteredInterventions = interventions.filter((intervention) => {
+        if (activeTab === "all") return true;
+        return intervention.status === activeTab;
+    });
+
+    // Calculate tab counts
+    const counts = {
+        all: interventions.length,
+        active: interventions.filter((i) => i.status === "active").length,
+        completed: interventions.filter((i) => i.status === "completed").length,
+    };
+
     return (
         <AuthenticatedLayout>
             <Head title="Interventions & Feedback" />
 
-            <div className="max-w-7xl mx-auto space-y-8">
-                {/* Header: Title and Tabs */}
+            {/* Custom CSS for blink animation */}
+            <style>{`
+                @keyframes highlight-blink {
+                    0%, 100% { 
+                        background-color: rgb(253 242 248); 
+                        box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.3);
+                    }
+                    25%, 75% { 
+                        background-color: rgb(252 231 243); 
+                        box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.6);
+                    }
+                    50% { 
+                        background-color: rgb(251 207 232); 
+                        box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.8);
+                    }
+                }
+                .animate-highlight-blink {
+                    animation: highlight-blink 0.5s ease-in-out 2;
+                }
+            `}</style>
+
+            <div className="max-w-7xl mx-auto space-y-6">
+                {/* Header */}
                 <div className="flex flex-wrap justify-between items-center gap-4">
-                    <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
-                        <ListTodo size={36} className="text-pink-600" />
-                        Interventions & Feedback
-                    </h1>
-                    <FilterTabs />
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                            <ListTodo size={32} className="text-pink-600" />
+                            Interventions & Feedback
+                        </h1>
+                        <p className="text-gray-500 mt-1">
+                            Track your academic interventions and teacher
+                            feedback
+                        </p>
+                    </div>
+                    <FilterTabs
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        counts={counts}
+                    />
                 </div>
 
-                {/* Summary Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {summaryStats.map(stat => <StatCard key={stat.label} {...stat} />)}
+                {/* Summary Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard
+                        label="Active Interventions"
+                        value={stats.activeInterventions || 0}
+                        icon={AlertTriangle}
+                        color="pink"
+                    />
+                    <StatCard
+                        label="Completed"
+                        value={stats.completedInterventions || 0}
+                        icon={CheckCircle2}
+                        color="green"
+                    />
+                    <StatCard
+                        label="Feedback Messages"
+                        value={stats.totalFeedback || 0}
+                        icon={MessageSquare}
+                        color="blue"
+                    />
+                    <StatCard
+                        label="Task Success Rate"
+                        value={`${stats.taskSuccessRate || 0}%`}
+                        icon={TrendingUp}
+                        color="orange"
+                    />
                 </div>
 
-                {/* Main Content: 2-Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                    
-                    {/* Left Column: Intervention Cards */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {interventions.map(item => <InterventionCard  key={item.id} item={item} />)}
+                {/* Main Content */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                    {/* Left Column: Interventions */}
+                    <div className="lg:col-span-2 space-y-4">
+                        {filteredInterventions.length > 0 ? (
+                            filteredInterventions.map((intervention) => (
+                                <InterventionCard
+                                    key={intervention.id}
+                                    intervention={intervention}
+                                />
+                            ))
+                        ) : (
+                            <EmptyState filter={activeTab} />
+                        )}
                     </div>
 
-                    {/* Right Column: Feedback & Actions */}
-                    <div className="space-y-6">
-                        <RecentFeedbackCard />
-                        <QuickActionsCard />
+                    {/* Right Column: Feedback */}
+                    <div className="space-y-4">
+                        <RecentFeedbackCard
+                            feedback={recentFeedback}
+                            highlightId={highlightId}
+                        />
+
+                        {/* Tips Card */}
+                        <div className="bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl shadow-md p-6 text-white">
+                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                <BookOpen size={20} />
+                                Quick Tips
+                            </h3>
+                            <ul className="space-y-2 text-sm text-pink-100">
+                                <li className="flex items-start gap-2">
+                                    <CheckCircle2
+                                        size={16}
+                                        className="flex-shrink-0 mt-0.5"
+                                    />
+                                    Complete tasks to improve your progress
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <CheckCircle2
+                                        size={16}
+                                        className="flex-shrink-0 mt-0.5"
+                                    />
+                                    Communicate with your teachers regularly
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <CheckCircle2
+                                        size={16}
+                                        className="flex-shrink-0 mt-0.5"
+                                    />
+                                    Check feedback daily for updates
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-
             </div>
         </AuthenticatedLayout>
     );

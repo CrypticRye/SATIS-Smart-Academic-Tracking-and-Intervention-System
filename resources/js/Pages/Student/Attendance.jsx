@@ -1,114 +1,238 @@
-import React, { useState } from 'react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css'; // Import default calendar styles
-import { 
-    CalendarCheck, 
-    CheckCircle2, 
-    XCircle, 
-    Clock, 
-    UserCheck, 
-    ChevronRight,
+import React, { useState, useMemo } from "react";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import { Head, usePage } from "@inertiajs/react";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import {
+    CalendarCheck,
+    CheckCircle2,
+    XCircle,
+    Clock,
+    UserCheck,
     BookOpen,
-    History
-} from 'lucide-react';
+    History,
+    AlertCircle,
+    ShieldCheck,
+    Loader2,
+    RefreshCw,
+    TrendingUp,
+    TrendingDown,
+} from "lucide-react";
 
-// --- Mock Data (Replace with your actual data) ---
-const summaryData = [
-    { label: 'Overall Rate', value: '92%', icon: CheckCircle2, color: 'text-green-600' },
-    { label: 'Total Absences', value: '4', icon: XCircle, color: 'text-red-600' },
-    { label: 'Total Lates', value: '2', icon: Clock, color: 'text-yellow-600' },
-    { label: 'Days Present', value: '58', icon: UserCheck, color: 'text-pink-600' },
-];
+// --- Helper Components ---
 
-const subjectAttendance = [
-    { id: 1, subject: 'Mathematics', instructor: 'Prof. Felix Miravilla', rate: 95, absences: 1, lates: 0 },
-    { id: 2, subject: 'Programming', instructor: 'Prof. Danny D.P Dinglasa Jr.', rate: 90, absences: 2, lates: 1 },
-    { id: 3, subject: 'Earth and Life Science', instructor: 'Ms. Jane Doe', rate: 88, absences: 1, lates: 1 },
-    { id: 4, subject: 'English', instructor: 'Prof. John Smith', rate: 100, absences: 0, lates: 0 },
-];
+// Loading Skeleton for cards
+const CardSkeleton = () => (
+    <div className="bg-white rounded-2xl shadow-lg p-5 animate-pulse">
+        <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+            <div className="flex-1">
+                <div className="h-6 bg-gray-200 rounded w-16 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-24"></div>
+            </div>
+        </div>
+    </div>
+);
 
-const attendanceLog = [
-    { id: 1, date: 'Nov 4, 2025', subject: 'Programming', status: 'Absent', icon: XCircle, color: 'text-red-600' },
-    { id: 2, date: 'Nov 3, 2025', subject: 'Earth and Life Science', status: 'Late', icon: Clock, color: 'text-yellow-600' },
-    { id: 3, date: 'Nov 3, 2025', subject: 'Mathematics', status: 'Present', icon: CheckCircle2, color: 'text-green-600' },
-    { id: 4, date: 'Nov 1, 2025', subject: 'Programming', status: 'Absent', icon: XCircle, color: 'text-red-600' },
-];
+// Loading Skeleton for subject cards
+const SubjectCardSkeleton = () => (
+    <div className="bg-white rounded-2xl shadow-lg p-5 animate-pulse">
+        <div className="flex justify-between items-start mb-3">
+            <div className="flex-1">
+                <div className="h-5 bg-gray-200 rounded w-32 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-40"></div>
+            </div>
+            <div className="h-8 bg-gray-200 rounded w-12"></div>
+        </div>
+        <div className="h-2 bg-gray-200 rounded-full mb-3"></div>
+        <div className="flex justify-between">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+            <div className="h-4 bg-gray-200 rounded w-16"></div>
+        </div>
+    </div>
+);
 
-// Dates to mark on the calendar
-// In a real app, you'd generate this from your attendance data
-const markedDates = {
-    '2025-11-04': 'absent',
-    '2025-11-01': 'absent',
-    '2025-11-03': 'late',
-};
-// --- End of Mock Data ---
+// Empty State Component
+const EmptyState = ({ title, message, icon: Icon }) => (
+    <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+            <Icon size={32} className="text-gray-400" />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">{title}</h3>
+        <p className="text-gray-500 max-w-md mx-auto">{message}</p>
+    </div>
+);
 
+// Error State Component
+const ErrorState = ({ message, onRetry }) => (
+    <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <AlertCircle size={32} className="text-red-500" />
+        </div>
+        <h3 className="text-xl font-semibold text-red-700 mb-2">
+            Unable to Load Attendance
+        </h3>
+        <p className="text-red-600 mb-4">
+            {message || "Something went wrong. Please try again."}
+        </p>
+        {onRetry && (
+            <button
+                onClick={onRetry}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+                <RefreshCw size={18} />
+                Try Again
+            </button>
+        )}
+    </div>
+);
 
 // --- Reusable Components ---
 
 // Top Summary Card
-const SummaryCard = ({ label, value, icon: Icon, color }) => (
-    <div className="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4">
-        <div className={`p-3 rounded-full ${color.replace('text-', 'bg-').replace('-600', '-100')}`}>
+const SummaryCard = ({ label, value, icon: Icon, color, bgColor, trend }) => (
+    <div className="bg-white rounded-2xl shadow-lg p-5 flex items-center space-x-4 hover:shadow-xl transition-shadow">
+        <div className={`p-3 rounded-full ${bgColor}`}>
             <Icon size={24} className={color} />
         </div>
-        <div>
+        <div className="flex-1">
             <p className="text-2xl font-bold text-gray-800">{value}</p>
             <p className="text-sm font-medium text-gray-500">{label}</p>
         </div>
+        {trend !== undefined && trend !== null && (
+            <div
+                className={`flex items-center gap-1 text-sm ${
+                    trend >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+            >
+                {trend >= 0 ? (
+                    <TrendingUp size={16} />
+                ) : (
+                    <TrendingDown size={16} />
+                )}
+                <span>{Math.abs(trend)}%</span>
+            </div>
+        )}
     </div>
 );
 
 // Progress Bar for Subjects
 const AttendanceProgressBar = ({ rate }) => {
-    let barColor = 'bg-green-500';
-    if (rate < 90) barColor = 'bg-yellow-500';
-    if (rate < 80) barColor = 'bg-red-500';
+    let barColor = "bg-green-500";
+    if (rate < 90) barColor = "bg-yellow-500";
+    if (rate < 80) barColor = "bg-red-500";
 
     return (
-        <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className={`${barColor} h-2 rounded-full`} style={{ width: `${rate}%` }} />
+        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div
+                className={`${barColor} h-2.5 rounded-full transition-all duration-500 ease-out`}
+                style={{ width: `${rate}%` }}
+            />
         </div>
+    );
+};
+
+// Status Badge Component
+const StatusBadge = ({ status }) => {
+    const statusConfig = {
+        Present: {
+            bg: "bg-green-100",
+            text: "text-green-700",
+            icon: CheckCircle2,
+        },
+        Absent: { bg: "bg-red-100", text: "text-red-700", icon: XCircle },
+        Late: { bg: "bg-yellow-100", text: "text-yellow-700", icon: Clock },
+        Excused: {
+            bg: "bg-blue-100",
+            text: "text-blue-700",
+            icon: ShieldCheck,
+        },
+    };
+
+    const config = statusConfig[status] || statusConfig.Present;
+    const Icon = config.icon;
+
+    return (
+        <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
+        >
+            <Icon size={14} />
+            {status}
+        </span>
     );
 };
 
 // Subject Attendance Card
 const SubjectAttendanceCard = ({ item }) => (
-    <div className="bg-white rounded-2xl shadow-lg p-5 transition-all hover:shadow-xl">
-        <div className="flex justify-between items-start">
-            <div>
-                <h3 className="text-lg font-bold text-gray-800">{item.subject}</h3>
-                <p className="text-sm text-gray-500 mb-3">{item.instructor}</p>
+    <div className="bg-white rounded-2xl shadow-lg p-5 transition-all hover:shadow-xl hover:-translate-y-1">
+        <div className="flex justify-between items-start mb-3">
+            <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-800 line-clamp-1">
+                    {item.subject}
+                </h3>
+                <p className="text-sm text-gray-500">{item.instructor}</p>
             </div>
-            <span className="text-2xl font-bold text-pink-600">{item.rate}%</span>
+            <div className="text-right">
+                <span
+                    className={`text-2xl font-bold ${
+                        item.rate >= 90
+                            ? "text-green-600"
+                            : item.rate >= 80
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                    }`}
+                >
+                    {item.rate}%
+                </span>
+            </div>
         </div>
         <AttendanceProgressBar rate={item.rate} />
-        <div className="flex justify-between text-sm mt-3">
-            <span className="text-gray-600">Absences: <span className="font-bold text-red-600">{item.absences}</span></span>
-            <span className="text-gray-600">Lates: <span className="font-bold text-yellow-600">{item.lates}</span></span>
+        <div className="grid grid-cols-4 gap-2 mt-4 text-center">
+            <div className="bg-green-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-green-600">
+                    {item.present}
+                </p>
+                <p className="text-xs text-gray-500">Present</p>
+            </div>
+            <div className="bg-red-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-red-600">
+                    {item.absences}
+                </p>
+                <p className="text-xs text-gray-500">Absent</p>
+            </div>
+            <div className="bg-yellow-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-yellow-600">
+                    {item.lates}
+                </p>
+                <p className="text-xs text-gray-500">Late</p>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-blue-600">
+                    {item.excused}
+                </p>
+                <p className="text-xs text-gray-500">Excused</p>
+            </div>
         </div>
     </div>
 );
 
-// Calendar Component
-const AttendanceCalendar = () => {
-    const [date, setDate] = useState(new Date('2025-11-05'));
+// Calendar Component with real data
+const AttendanceCalendar = ({ calendarData }) => {
+    const [date, setDate] = useState(new Date());
 
     const getTileClassName = ({ date, view }) => {
-        if (view === 'month') {
-            const dateString = date.toISOString().split('T')[0];
-            const type = markedDates[dateString];
-            if (type === 'absent') {
-                return 'day-absent';
-            }
-            if (type === 'late') {
-                return 'day-late';
-            }
+        if (view === "month") {
+            const dateString = date.toISOString().split("T")[0];
+            const status = calendarData[dateString];
+            if (status === "absent") return "day-absent";
+            if (status === "late") return "day-late";
+            if (status === "excused") return "day-excused";
+            if (status === "present") return "day-present";
         }
         return null;
     };
+
+    const hasData = Object.keys(calendarData).length > 0;
 
     return (
         <div className="bg-white rounded-2xl shadow-lg p-4 attendance-calendar">
@@ -118,117 +242,410 @@ const AttendanceCalendar = () => {
                 tileClassName={getTileClassName}
                 view="month"
             />
-            <div className="flex justify-center space-x-4 mt-4 pt-3 border-t">
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-100 border border-red-400" />
-                    <span className="text-xs font-medium text-gray-600">Absent</span>
+            {hasData ? (
+                <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-100 border border-green-400" />
+                        <span className="text-xs font-medium text-gray-600">
+                            Present
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-100 border border-red-400" />
+                        <span className="text-xs font-medium text-gray-600">
+                            Absent
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-100 border border-yellow-400" />
+                        <span className="text-xs font-medium text-gray-600">
+                            Late
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-100 border border-blue-400" />
+                        <span className="text-xs font-medium text-gray-600">
+                            Excused
+                        </span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-yellow-100 border border-yellow-400" />
-                    <span className="text-xs font-medium text-gray-600">Late</span>
+            ) : (
+                <p className="text-center text-gray-500 text-sm mt-4 pt-3 border-t">
+                    No attendance data to display yet
+                </p>
+            )}
+        </div>
+    );
+};
+
+// Recent Activity Log with real data
+const RecentActivity = ({ attendanceLog }) => {
+    const getStatusConfig = (status) => {
+        const configs = {
+            Present: {
+                icon: CheckCircle2,
+                color: "text-green-600",
+                bg: "bg-green-100",
+            },
+            Absent: { icon: XCircle, color: "text-red-600", bg: "bg-red-100" },
+            Late: {
+                icon: Clock,
+                color: "text-yellow-600",
+                bg: "bg-yellow-100",
+            },
+            Excused: {
+                icon: ShieldCheck,
+                color: "text-blue-600",
+                bg: "bg-blue-100",
+            },
+        };
+        return configs[status] || configs.Present;
+    };
+
+    if (!attendanceLog || attendanceLog.length === 0) {
+        return (
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <History size={22} className="text-pink-600" />
+                    Recent Activity
+                </h3>
+                <div className="text-center py-8">
+                    <Clock size={40} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500">No attendance records yet</p>
                 </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <History size={22} className="text-pink-600" />
+                Recent Activity
+            </h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                {attendanceLog.map((item) => {
+                    const config = getStatusConfig(item.status);
+                    const Icon = config.icon;
+                    return (
+                        <div
+                            key={item.id}
+                            className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                        >
+                            <div className={`p-2 rounded-full ${config.bg}`}>
+                                <Icon size={18} className={config.color} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-700 truncate">
+                                    {item.subject}
+                                </p>
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                    <span>{item.date}</span>
+                                    <span>•</span>
+                                    <span>{item.time}</span>
+                                </div>
+                            </div>
+                            <StatusBadge status={item.status} />
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
 };
 
-// Recent Activity Log
-const RecentActivity = () => (
-    <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <History size={22} className="text-pink-600" />
-            Recent Activity
-        </h3>
-        <div className="space-y-4">
-            {attendanceLog.map(item => (
-                <div key={item.id} className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-full ${item.color.replace('text-', 'bg-').replace('-600', '-100')}`}>
-                        <item.icon size={18} className={item.color} />
-                    </div>
-                    <div>
-                        <p className="font-medium text-gray-700">{item.subject} - <span className={item.color}>{item.status}</span></p>
-                        <p className="text-sm text-gray-500">{item.date}</p>
-                    </div>
-                </div>
-            ))}
-        </div>
-    </div>
-);
-
 // --- Main Attendance Page Component ---
-const Attendance = () => {
-  return (
-    <AuthenticatedLayout>
-        <Head title="Attendance" />
+const Attendance = ({
+    summaryStats,
+    subjectAttendance,
+    attendanceLog,
+    calendarData,
+}) => {
+    const { props } = usePage();
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-        {/* Global CSS for Calendar */}
-        <style>{`
-            .attendance-calendar .react-calendar {
-                border: none;
-                width: 100%;
-            }
-            .attendance-calendar .react-calendar__tile {
-                border-radius: 8px;
-            }
-            .attendance-calendar .react-calendar__tile--now {
-                background: #fdf2f8; /* pink-50 */
-                color: #be185d; /* pink-700 */
-            }
-            .attendance-calendar .react-calendar__tile--active {
-                background: #ec4899; /* pink-500 */
-                color: white;
-            }
-            .attendance-calendar .day-absent {
-                background: #fee2e2; /* red-100 */
-                color: #b91c1c; /* red-700 */
-                font-weight: bold;
-                border-radius: 8px;
-            }
-            .attendance-calendar .day-late {
-                background: #fef3c7; /* yellow-100 */
-                color: #b45309; /* yellow-700 */
-                font-weight: bold;
-                border-radius: 8px;
-            }
-        `}</style>
+    // Build summary cards from real data
+    const summaryCards = useMemo(() => {
+        if (!summaryStats) return [];
+        return [
+            {
+                label: "Overall Rate",
+                value: `${summaryStats.overallRate}%`,
+                icon: CheckCircle2,
+                color: "text-green-600",
+                bgColor: "bg-green-100",
+            },
+            {
+                label: "Days Present",
+                value: summaryStats.presentDays.toString(),
+                icon: UserCheck,
+                color: "text-pink-600",
+                bgColor: "bg-pink-100",
+            },
+            {
+                label: "Total Absences",
+                value: summaryStats.absentDays.toString(),
+                icon: XCircle,
+                color: "text-red-600",
+                bgColor: "bg-red-100",
+            },
+            {
+                label: "Total Lates",
+                value: summaryStats.lateDays.toString(),
+                icon: Clock,
+                color: "text-yellow-600",
+                bgColor: "bg-yellow-100",
+            },
+        ];
+    }, [summaryStats]);
 
-        <div className="max-w-7xl mx-auto space-y-8">
-            {/* Header */}
-            <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
-                <CalendarCheck size={36} className="text-pink-600" />
-                Attendance Overview
-            </h1>
+    // Handle refresh
+    const handleRefresh = () => {
+        window.location.reload();
+    };
 
-            {/* Summary Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {summaryData.map(stat => <SummaryCard key={stat.label} {...stat} />)}
-            </div>
+    // Check if we have any data
+    const hasAttendanceData = summaryStats && summaryStats.totalDays > 0;
+    const hasSubjects = subjectAttendance && subjectAttendance.length > 0;
 
-            {/* Main Content: 2-Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                
-                {/* Left Column: Subject Breakdown */}
-                <div className="lg:col-span-2 space-y-6">
-                    <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                        <BookOpen size={24} />
-                        Attendance by Subject
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {subjectAttendance.map(item => (
-                            <SubjectAttendanceCard key={item.id} item={item} />
-                        ))}
-                    </div>
+    return (
+        <AuthenticatedLayout>
+            <Head title="Attendance" />
+
+            {/* Global CSS for Calendar */}
+            <style>{`
+                .attendance-calendar .react-calendar {
+                    border: none;
+                    width: 100%;
+                    font-family: inherit;
+                }
+                .attendance-calendar .react-calendar__tile {
+                    border-radius: 8px;
+                    padding: 0.75em 0.5em;
+                }
+                .attendance-calendar .react-calendar__tile--now {
+                    background: #fdf2f8;
+                    color: #be185d;
+                }
+                .attendance-calendar .react-calendar__tile--active {
+                    background: #ec4899;
+                    color: white;
+                }
+                .attendance-calendar .react-calendar__tile:hover {
+                    background: #f3f4f6;
+                }
+                .attendance-calendar .react-calendar__tile--active:hover {
+                    background: #db2777;
+                }
+                .attendance-calendar .day-absent {
+                    background: #fee2e2 !important;
+                    color: #b91c1c !important;
+                    font-weight: bold;
+                }
+                .attendance-calendar .day-late {
+                    background: #fef3c7 !important;
+                    color: #b45309 !important;
+                    font-weight: bold;
+                }
+                .attendance-calendar .day-excused {
+                    background: #dbeafe !important;
+                    color: #1d4ed8 !important;
+                    font-weight: bold;
+                }
+                .attendance-calendar .day-present {
+                    background: #dcfce7 !important;
+                    color: #15803d !important;
+                }
+                .attendance-calendar .react-calendar__navigation button {
+                    min-width: 44px;
+                    background: none;
+                    font-size: 16px;
+                    font-weight: 600;
+                }
+                .attendance-calendar .react-calendar__navigation button:hover {
+                    background: #f3f4f6;
+                    border-radius: 8px;
+                }
+            `}</style>
+
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
+                        <CalendarCheck size={36} className="text-pink-600" />
+                        Attendance Overview
+                    </h1>
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isLoading}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50"
+                    >
+                        <RefreshCw
+                            size={18}
+                            className={isLoading ? "animate-spin" : ""}
+                        />
+                        Refresh
+                    </button>
                 </div>
 
-                {/* Right Column: Calendar & Activity */}
-                <div className="space-y-6">
-                    <AttendanceCalendar />
-                    <RecentActivity />
-                </div>
+                {/* Error State */}
+                {error && (
+                    <ErrorState message={error} onRetry={handleRefresh} />
+                )}
+
+                {/* Loading State */}
+                {isLoading ? (
+                    <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {[...Array(4)].map((_, i) => (
+                                <CardSkeleton key={i} />
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {[...Array(4)].map((_, i) => (
+                                    <SubjectCardSkeleton key={i} />
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Summary Stats Grid */}
+                        {hasAttendanceData ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {summaryCards.map((stat) => (
+                                    <SummaryCard key={stat.label} {...stat} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-6 border border-pink-100">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-white rounded-full shadow-sm">
+                                        <CalendarCheck
+                                            size={24}
+                                            className="text-pink-600"
+                                        />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-800">
+                                            No Attendance Records Yet
+                                        </h3>
+                                        <p className="text-gray-600 text-sm">
+                                            Your attendance will appear here
+                                            once your teachers start recording
+                                            it.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Main Content: 2-Column Layout */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                            {/* Left Column: Subject Breakdown */}
+                            <div className="lg:col-span-2 space-y-6">
+                                <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+                                    <BookOpen size={24} />
+                                    Attendance by Subject
+                                </h2>
+
+                                {hasSubjects ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {subjectAttendance.map((item) => (
+                                            <SubjectAttendanceCard
+                                                key={item.id}
+                                                item={item}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <EmptyState
+                                        title="No Subjects Found"
+                                        message="You're not enrolled in any subjects yet. Contact your teacher or administrator for enrollment."
+                                        icon={BookOpen}
+                                    />
+                                )}
+                            </div>
+
+                            {/* Right Column: Calendar & Activity */}
+                            <div className="space-y-6">
+                                <AttendanceCalendar
+                                    calendarData={calendarData || {}}
+                                />
+                                <RecentActivity
+                                    attendanceLog={attendanceLog || []}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Attendance Tips Section */}
+                        {hasAttendanceData && summaryStats.overallRate < 90 && (
+                            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 border border-yellow-200">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-yellow-100 rounded-full">
+                                        <AlertCircle
+                                            size={24}
+                                            className="text-yellow-600"
+                                        />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-800 mb-2">
+                                            Improve Your Attendance
+                                        </h3>
+                                        <ul className="text-sm text-gray-600 space-y-1">
+                                            <li>
+                                                • Regular attendance is crucial
+                                                for academic success
+                                            </li>
+                                            <li>
+                                                • If you're having difficulties,
+                                                talk to your guidance counselor
+                                            </li>
+                                            <li>
+                                                • Remember to bring an excuse
+                                                letter for unavoidable absences
+                                            </li>
+                                            <li>
+                                                • Arrive on time to avoid being
+                                                marked as late
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Excellent Attendance Recognition */}
+                        {hasAttendanceData &&
+                            summaryStats.overallRate >= 95 && (
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-green-100 rounded-full">
+                                            <CheckCircle2
+                                                size={24}
+                                                className="text-green-600"
+                                            />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-gray-800">
+                                                Excellent Attendance! 🎉
+                                            </h3>
+                                            <p className="text-gray-600 text-sm">
+                                                Keep up the great work! Your
+                                                consistent attendance shows
+                                                dedication to your education.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                    </>
+                )}
             </div>
-        </div>
-    </AuthenticatedLayout>
-  );
+        </AuthenticatedLayout>
+    );
 };
 
 export default Attendance;

@@ -1,71 +1,20 @@
 import React from "react";
 import TeacherLayout from "../../Layouts/TeacherLayout";
 import { Head, Link } from "@inertiajs/react";
-import { useLoading } from "@/Context/LoadingContext";
-import { Check, XIcon, Clock } from "lucide-react";
+import { Users, Calendar, ChevronRight, Check, X, Clock } from "lucide-react";
 
-// --- Mock Data for Attendance Log ---
-const mockAttendanceLog = [
-    {
-        id: 1,
-        dateTime: "2025-11-06T09:15:00Z",
-        className: "Grade 12 - STEM (Physics)",
-        stats: { present: 38, absent: 1, late: 1 },
-    },
-    {
-        id: 2,
-        dateTime: "2025-11-05T09:12:00Z",
-        className: "Grade 12 - STEM (Physics)",
-        stats: { present: 37, absent: 3, late: 0 },
-    },
-    {
-        id: 3,
-        dateTime: "2025-11-04T13:30:00Z",
-        className: "Grade 10 - ABM (Economics)",
-        stats: { present: 40, absent: 0, late: 0 },
-    },
-    {
-        id: 4,
-        dateTime: "2025-11-04T09:10:00Z",
-        className: "Grade 12 - STEM (Physics)",
-        stats: { present: 39, absent: 0, late: 1 },
-    },
-    {
-        id: 5,
-        dateTime: "2025-11-03T09:14:00Z",
-        className: "Grade 12 - STEM (Physics)",
-        stats: { present: 36, absent: 2, late: 2 },
-    },
-    {
-        id: 6,
-        dateTime: "2025-11-02T13:30:00Z",
-        className: "Grade 10 - ABM (Economics)",
-        stats: { present: 39, absent: 1, late: 0 },
-    },
-    {
-        id: 7,
-        dateTime: "2025-11-01T09:11:00Z",
-        className: "Grade 12 - STEM (Physics)",
-        stats: { present: 40, absent: 0, late: 0 },
-    },
-];
-
-// --- Helper function to format DateTime ---
-const formatLogDateTime = (isoString) => {
-    const date = new Date(isoString);
-    const options = {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-    };
-    return date.toLocaleString("en-US", options);
+// Color classes for sections
+const colorClasses = {
+    indigo: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    blue: "bg-blue-100 text-blue-800 border-blue-200",
+    red: "bg-red-100 text-red-800 border-red-200",
+    green: "bg-green-100 text-green-800 border-green-200",
+    amber: "bg-amber-100 text-amber-800 border-amber-200",
+    purple: "bg-purple-100 text-purple-800 border-purple-200",
+    teal: "bg-teal-100 text-teal-800 border-teal-200",
 };
 
-// --- The Attendance Log Page Component ---
-const AttendanceLog = () => {
+const AttendanceLog = ({ sections = [] }) => {
     return (
         <TeacherLayout>
             <Head title="Attendance Log" />
@@ -73,7 +22,7 @@ const AttendanceLog = () => {
             {/* --- Breadcrumbs --- */}
             <nav className="mb-4 text-sm font-medium text-gray-500">
                 <Link
-                    href="/teacher/attendance" // Use the route to your main attendance page
+                    href={route("teacher.attendance.index")}
                     className="text-indigo-600 hover:underline"
                 >
                     Attendance
@@ -88,58 +37,97 @@ const AttendanceLog = () => {
                     Attendance Log
                 </h1>
                 <p className="text-lg text-gray-600">
-                    A history of all submitted attendance records.
+                    Select a section to view detailed attendance records.
                 </p>
             </div>
 
-            {/* --- Log List --- */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <ul className="divide-y divide-gray-200">
-                    {mockAttendanceLog.map((log) => (
-                        <li key={log.id} className="p-4 sm:p-6">
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center">
-                                <div>
-                                    <p className="text-lg font-semibold text-indigo-700">
-                                        {log.className}
-                                    </p>
-                                    <p className="text-sm text-gray-600 mb-2 sm:mb-0">
-                                        {formatLogDateTime(log.dateTime)}
-                                    </p>
+            {/* --- Sections Grid --- */}
+            {sections.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+                    <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                        No Sections Found
+                    </h3>
+                    <p className="text-gray-500">
+                        You don't have any classes with attendance records yet.
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {sections.map((section) => (
+                        <Link
+                            key={section.id}
+                            href={route("teacher.attendance.log.show", {
+                                subject: section.id,
+                            })}
+                            className="group"
+                        >
+                            <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl hover:border-indigo-300 transition-all duration-200">
+                                {/* Section Header */}
+                                <div
+                                    className={`px-6 py-4 border-b ${
+                                        colorClasses[section.color] ||
+                                        colorClasses.indigo
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-bold">
+                                                {section.grade_level} -{" "}
+                                                {section.section}
+                                            </h3>
+                                            <p className="text-sm opacity-80">
+                                                {section.name}
+                                            </p>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-4 text-sm sm:gap-6">
-                                    <span className="flex items-center gap-1.5 text-green-700">
-                                        <Check size={16} />
-                                        <span className="font-medium">
-                                            {log.stats.present}
+
+                                {/* Section Stats */}
+                                <div className="px-6 py-4">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <Users className="w-4 h-4" />
+                                            <span className="text-sm font-medium">
+                                                {section.student_count} Students
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <Calendar className="w-4 h-4" />
+                                            <span className="text-sm font-medium">
+                                                {section.total_days} Days
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Attendance Stats */}
+                                    <div className="flex items-center gap-4 text-sm">
+                                        <span className="flex items-center gap-1.5 text-green-700">
+                                            <Check size={14} />
+                                            <span className="font-medium">
+                                                {section.stats.present}
+                                            </span>
                                         </span>
-                                        <span className="text-gray-600">
-                                            Present
+                                        <span className="flex items-center gap-1.5 text-red-700">
+                                            <X size={14} />
+                                            <span className="font-medium">
+                                                {section.stats.absent}
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span className="flex items-center gap-1.5 text-red-700">
-                                        <XIcon size={16} />
-                                        <span className="font-medium">
-                                            {log.stats.absent}
+                                        <span className="flex items-center gap-1.5 text-yellow-700">
+                                            <Clock size={14} />
+                                            <span className="font-medium">
+                                                {section.stats.late}
+                                            </span>
                                         </span>
-                                        <span className="text-gray-600">
-                                            Absent
-                                        </span>
-                                    </span>
-                                    <span className="flex items-center gap-1.5 text-yellow-700">
-                                        <Clock size={16} />
-                                        <span className="font-medium">
-                                            {log.stats.late}
-                                        </span>
-                                        <span className="text-gray-600">
-                                            Late
-                                        </span>
-                                    </span>
+                                    </div>
                                 </div>
                             </div>
-                        </li>
+                        </Link>
                     ))}
-                </ul>
-            </div>
+                </div>
+            )}
         </TeacherLayout>
     );
 };

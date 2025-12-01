@@ -14,10 +14,20 @@ class Student extends Model
         'first_name',
         'last_name',
         'middle_name',
+        'lrn',
         'subject',
         'grade',
         'trend',
         'avatar',
         'user_id',
+        'grade_level',
+        'section',
+        'strand',
+        'track',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

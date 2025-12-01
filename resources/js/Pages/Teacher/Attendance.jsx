@@ -1,168 +1,158 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import TeacherLayout from "../../Layouts/TeacherLayout";
-import { Head, Link } from "@inertiajs/react";
+import { Head } from "@inertiajs/react";
 import { useLoading } from "@/Context/LoadingContext";
-import AttendanceLog from "./AttendanceLog";
-import {
-    LayoutGrid,
-    List,
-    CalendarDays,
-    Check,
-    XIcon,
-    Clock,
-    History,
-} from "lucide-react";
+import { LayoutGrid, List, Check, XIcon, Clock, History } from "lucide-react";
 import NavLink from "@/Components/NavLink";
 import SeatingGrid from "@/Components/SeatingGrid";
 import StudentList from "@/Components/StudentList";
 
-// --- Mock Data Generation (Unchanged) ---
+const GRID_ROWS = 5;
+const GRID_COLS = 10;
 
-const createAvatar = (name) => {
-    const initials = name
-        .split(" ")
-        .map((n) => n[0])
-        .join("");
-    const colors = [
-        "E9D5FF/4C1D95",
-        "DBEAFE/1E3A8A",
-        "FEE2E2/991B1B",
-        "E0F2FE/0C4A6E",
-        "FEF9C3/854D0E",
-        "FCE7F3/9D174D",
-        "D1FAE5/065F46",
-    ];
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    return `https://placehold.co/40x40/${color}?text=${initials}`;
-};
+const buildSeatLayout = (students) => {
+    const totalSeats = GRID_ROWS * GRID_COLS;
+    const assignments = students.map((student) => student.id);
 
-const mockNames = [
-    "Sheena De Guzman",
-    "John Smith",
-    "Maria Clara",
-    "Crisostomo Ibarra",
-    "Juan Dela Cruz",
-    "Sisa Alagasi",
-    "Elias Magsalin",
-    "Pedro Penduko",
-    "Basilio Ocampo",
-    "Crispin Ocampo",
-    "Isagani Flores",
-    "Paulita Gomez",
-    "Juli Sandoval",
-    "Tandang Sora",
-    "Andres Bonifacio",
-    "Emilio Aguinaldo",
-    "Jose Rizal",
-    "Gabriela Silang",
-    "Lapu-Lapu",
-    "Leonor Rivera",
-    "Antonio Luna",
-    "Heneral Goyo",
-    "Melchora Aquino",
-    "Diego Silang",
-    "Rhea Santos",
-    "Mike Enriquez",
-    "Noli De Castro",
-    "Korina Sanchez",
-    "Ted Failon",
-    "Lito Atienza",
-    "Isko Moreno",
-    "Vico Sotto",
-    "Manny Pacquiao",
-    "Hidilyn Diaz",
-    "Catriona Gray",
-    "Pia Wurtzbach",
-    "Gloria Diaz",
-    "Margarita Moran",
-    "Kylie Versoza",
-    "Megan Young",
-];
+    while (assignments.length < totalSeats) {
+        assignments.push(null);
+    }
 
-const generateClassroomData = () => {
-    const totalRows = 5;
-    const totalCols = 10;
-    const numSeats = totalRows * totalCols;
-    const numStudents = 40;
-
-    const studentList = mockNames.slice(0, numStudents).map((name, index) => ({
-        id: 101 + index,
-        name: name,
-        avatar: createAvatar(name),
-        status: "present",
+    return assignments.map((studentId, index) => ({
+        row: Math.floor(index / GRID_COLS) + 1,
+        col: (index % GRID_COLS) + 1,
+        studentId,
     }));
-
-    let seatFillers = studentList.map((s) => s.id);
-    for (let i = 0; i < numSeats - numStudents; i++) {
-        seatFillers.push(null);
-    }
-
-    for (let i = seatFillers.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [seatFillers[i], seatFillers[j]] = [seatFillers[j], seatFillers[i]];
-    }
-
-    const seatLayout = [];
-    for (let r = 1; r <= totalRows; r++) {
-        for (let c = 1; c <= totalCols; c++) {
-            seatLayout.push({
-                row: r,
-                col: c,
-                studentId: seatFillers.pop(),
-            });
-        }
-    }
-
-    return {
-        students: studentList,
-        seatLayout: seatLayout,
-    };
 };
 
-const mockClasses = [
-    { id: 1, name: "Grade 12 - STEM (Physics)" },
-    { id: 2, name: "Grade 10 - ABM (Economics)" },
-    { id: 3, name: "Grade 11 - HUMSS (History)" },
-];
-
-// --- 1. The Main Attendance Page Component ---
-
-const Attendance = () => {
+const Attendance = ({ classes = [], rosters = {} }) => {
     const { startLoading, stopLoading } = useLoading();
     const [viewMode, setViewMode] = useState("grid");
-    const [selectedClassId, setSelectedClassId] = useState(mockClasses[0].id);
+    const [selectedClassId, setSelectedClassId] = useState(
+        classes[0]?.id ?? null
+    );
     const [currentDate, setCurrentDate] = useState(
         new Date().toISOString().split("T")[0]
     );
     const [isDraggingEnabled, setIsDraggingEnabled] = useState(false);
 
-    const classData = useMemo(() => {
-        return generateClassroomData();
-    }, [selectedClassId]);
+    const baseStates = useMemo(() => {
+        const map = {};
 
-    const [students, setStudents] = useState(classData.students);
-    const [seatLayout, setSeatLayout] = useState(classData.seatLayout); // Make seatLayout stateful
+        classes.forEach((cls) => {
+            const roster = (rosters[cls.id] || []).map((student) => ({
+                ...student,
+                status: student.status || "present",
+            }));
 
-    // --- Logic for changing student status ---
+            map[cls.id] = {
+                students: roster,
+                seatLayout: buildSeatLayout(roster),
+            };
+        });
+
+        return map;
+    }, [classes, rosters]);
+
+    const [classStates, setClassStates] = useState(baseStates);
+
+    useEffect(() => {
+        setClassStates(baseStates);
+    }, [baseStates]);
+
+    useEffect(() => {
+        if (!selectedClassId && classes[0]) {
+            setSelectedClassId(classes[0].id);
+        }
+    }, [classes, selectedClassId]);
+
+    const currentClassState = useMemo(() => {
+        if (selectedClassId && classStates[selectedClassId]) {
+            return classStates[selectedClassId];
+        }
+
+        return {
+            students: [],
+            seatLayout: buildSeatLayout([]),
+        };
+    }, [classStates, selectedClassId]);
+
+    const students = currentClassState.students;
+    const seatLayout = currentClassState.seatLayout;
+
+    const stats = useMemo(() => {
+        const present = students.filter((s) => s.status === "present").length;
+        const absent = students.filter((s) => s.status === "absent").length;
+        const late = students.filter((s) => s.status === "late").length;
+        return { present, absent, late, total: students.length };
+    }, [students]);
+
+    const handleViewModeChange = (newMode) => {
+        startLoading();
+        setTimeout(() => {
+            setViewMode(newMode);
+            stopLoading();
+        }, 150);
+    };
+
+    const updateStudents = (updater) => {
+        if (!selectedClassId) return;
+
+        setClassStates((prev) => {
+            const current = prev[selectedClassId];
+            if (!current) return prev;
+
+            return {
+                ...prev,
+                [selectedClassId]: {
+                    ...current,
+                    students: updater(current.students),
+                },
+            };
+        });
+    };
+
+    const updateSeatLayout = (updater) => {
+        if (!selectedClassId) return;
+
+        setClassStates((prev) => {
+            const current = prev[selectedClassId];
+            if (!current) return prev;
+
+            return {
+                ...prev,
+                [selectedClassId]: {
+                    ...current,
+                    seatLayout: updater(current.seatLayout),
+                },
+            };
+        });
+    };
+
     const handleGridClick = (studentId) => {
-        if (isDraggingEnabled) return; // Prevent status change if dragging is enabled
+        if (isDraggingEnabled || !selectedClassId) return;
 
-        setStudents((currentStudents) =>
+        updateStudents((currentStudents) =>
             currentStudents.map((student) => {
-                if (student.id === studentId) {
-                    let newStatus;
-                    if (student.status === "present") newStatus = "absent";
-                    else if (student.status === "absent") newStatus = "late";
-                    else newStatus = "present";
-                    return { ...student, status: newStatus };
+                if (student.id !== studentId) {
+                    return student;
                 }
-                return student;
+
+                if (student.status === "present") {
+                    return { ...student, status: "absent" };
+                }
+
+                if (student.status === "absent") {
+                    return { ...student, status: "late" };
+                }
+
+                return { ...student, status: "present" };
             })
         );
     };
 
     const handleListClick = (studentId, newStatus) => {
-        setStudents((currentStudents) =>
+        updateStudents((currentStudents) =>
             currentStudents.map((student) =>
                 student.id === studentId
                     ? { ...student, status: newStatus }
@@ -171,93 +161,60 @@ const Attendance = () => {
         );
     };
 
-    const handleViewModeChange = (newMode) => {
-        startLoading();
-        setTimeout(() => {
-            setViewMode(newMode);
-            stopLoading();
-        }, 300);
-    };
-
-    // --- Drag and Drop Logic ---
     const handleSeatDrop = (draggedSeatInfo, targetCoords) => {
-        setSeatLayout((prevLayout) => {
+        updateSeatLayout((prevLayout) => {
             const newLayout = [...prevLayout];
 
-            // Find the source seat using its coordinates (row, col) from draggedSeatInfo
-            const sourceSeatIndex = newLayout.findIndex(
+            const sourceIndex = newLayout.findIndex(
                 (seat) =>
                     seat.row === draggedSeatInfo.row &&
                     seat.col === draggedSeatInfo.col
             );
-            // Find the target seat using its coordinates (row, col)
-            const targetSeatIndex = newLayout.findIndex(
+            const targetIndex = newLayout.findIndex(
                 (seat) =>
                     seat.row === targetCoords.row &&
                     seat.col === targetCoords.col
             );
 
-            // Crucial checks: ensure both source and target seats are found
-            if (sourceSeatIndex === -1) {
-                console.error(
-                    "Dragged student's original seat not found in layout."
-                );
-                return prevLayout;
-            }
-            if (targetSeatIndex === -1) {
-                console.error("Target seat not found in layout.");
+            if (sourceIndex === -1 || targetIndex === -1) {
                 return prevLayout;
             }
 
-            const sourceSeat = newLayout[sourceSeatIndex];
-            const targetSeat = newLayout[targetSeatIndex];
+            const sourceSeat = newLayout[sourceIndex];
+            const targetSeat = newLayout[targetIndex];
 
-            // Create new seat objects with swapped student IDs
-            // The studentId from the *dragged* item goes to the *target* seat
-            // The studentId from the *target* item goes to the *source* seat
-            const updatedSourceSeat = {
+            newLayout[sourceIndex] = {
                 ...sourceSeat,
                 studentId: targetSeat.studentId,
             };
-            const updatedTargetSeat = {
+            newLayout[targetIndex] = {
                 ...targetSeat,
                 studentId: draggedSeatInfo.studentId,
             };
-
-            // Update the new layout array
-            newLayout[sourceSeatIndex] = updatedSourceSeat;
-            newLayout[targetSeatIndex] = updatedTargetSeat;
 
             return newLayout;
         });
     };
 
-    // --- Statistics for the Summary Bar ---
-    const stats = useMemo(() => {
-        const present = students.filter((s) => s.status === "present").length;
-        const absent = students.filter((s) => s.status === "absent").length;
-        const late = students.filter((s) => s.status === "late").length;
-        return { present, absent, late, total: students.length };
-    }, [students]);
-
     const handleSubmit = () => {
+        if (!selectedClassId) return;
+
         console.log("Submitting Attendance:", {
             classId: selectedClassId,
             date: currentDate,
             students,
-            seatLayout, // Include seatLayout in submission
-            stats,
+            seatLayout,
         });
-        alert(`Attendance submitted for ${stats.total} students!`);
+
+        alert(`Attendance saved for ${stats.total} students.`);
     };
 
-    return (
-        <TeacherLayout>
-            <div className="teacher-layout-placeholder bg-gray-100 min-h-screen p-6">
-                {/* <Head title="Attendance" />  */}
-                <title>Attendance</title>
+    const hasClasses = classes.length > 0;
 
-                {/* --- Page Header --- */}
+    return (
+        <>
+            <Head title="Attendance" />
+            <div className="bg-gray-100 min-h-screen p-6">
                 <div className="mb-6">
                     <h1 className="text-3xl font-bold text-gray-900">
                         Take Attendance
@@ -267,9 +224,7 @@ const Attendance = () => {
                     </p>
                 </div>
 
-                {/* --- Control Bar --- */}
                 <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4 mb-8 sticky top-20 z-40">
-                    {/* Left Side: Class & Date Pickers (Unchanged) */}
                     <div className="flex items-center gap-4">
                         <div>
                             <label
@@ -278,20 +233,28 @@ const Attendance = () => {
                             >
                                 Class
                             </label>
-                            <select
-                                id="classSelect"
-                                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                value={selectedClassId}
-                                onChange={(e) =>
-                                    setSelectedClassId(Number(e.target.value))
-                                }
-                            >
-                                {mockClasses.map((cls) => (
-                                    <option key={cls.id} value={cls.id}>
-                                        {cls.name}
-                                    </option>
-                                ))}
-                            </select>
+                            {hasClasses ? (
+                                <select
+                                    id="classSelect"
+                                    className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    value={selectedClassId ?? ""}
+                                    onChange={(e) =>
+                                        setSelectedClassId(
+                                            Number(e.target.value)
+                                        )
+                                    }
+                                >
+                                    {classes.map((cls) => (
+                                        <option key={cls.id} value={cls.id}>
+                                            {cls.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p className="text-sm text-gray-500">
+                                    No classes assigned yet.
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label
@@ -310,9 +273,7 @@ const Attendance = () => {
                         </div>
                     </div>
 
-                    {/* Right Side: View Mode Toggle & Log Button */}
                     <div className="flex items-center gap-2">
-                        {/* Dragging Toggle Button */}
                         <button
                             onClick={() =>
                                 setIsDraggingEnabled(!isDraggingEnabled)
@@ -328,7 +289,6 @@ const Attendance = () => {
                                 ? "Disable Dragging"
                                 : "Enable Dragging"}
                         </button>
-                        {/* Log Button as a standard <a> tag */}
                         <NavLink
                             href="/teacher/attendance/log"
                             className="flex items-center gap-2 px-3 py-2 rounded-md font-medium text-sm text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
@@ -337,7 +297,6 @@ const Attendance = () => {
                             View Log
                         </NavLink>
 
-                        {/* View Mode Toggle */}
                         <div className="flex items-center p-1 bg-gray-200 rounded-lg">
                             <button
                                 onClick={() => handleViewModeChange("grid")}
@@ -367,26 +326,35 @@ const Attendance = () => {
                     </div>
                 </div>
 
-                {/* --- Main Content Area --- */}
                 <div className="pb-24">
-                    {viewMode === "grid" ? (
-                        <SeatingGrid
-                            className="active:cursor-grab"
-                            students={students}
-                            seatLayout={seatLayout}
-                            onClick={handleGridClick}
-                            isDraggingEnabled={isDraggingEnabled}
-                            onSeatDrop={handleSeatDrop}
-                        />
+                    {hasClasses && selectedClassId ? (
+                        viewMode === "grid" ? (
+                            <SeatingGrid
+                                className="active:cursor-grab"
+                                students={students}
+                                seatLayout={seatLayout}
+                                onClick={handleGridClick}
+                                isDraggingEnabled={isDraggingEnabled}
+                                onSeatDrop={handleSeatDrop}
+                            />
+                        ) : (
+                            <StudentList
+                                students={students}
+                                onClick={handleListClick}
+                            />
+                        )
                     ) : (
-                        <StudentList
-                            students={students}
-                            onClick={handleListClick}
-                        />
+                        <div className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-xl shadow">
+                            <p className="text-xl font-semibold text-gray-700">
+                                You don't have any classes yet.
+                            </p>
+                            <p className="text-gray-500">
+                                Create a class to start taking attendance.
+                            </p>
+                        </div>
                     )}
                 </div>
 
-                {/* --- Summary & Submit Bar --- */}
                 <div className="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-200 shadow-lg-top z-40">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between h-20">
@@ -424,18 +392,19 @@ const Attendance = () => {
                             </div>
                             <button
                                 onClick={handleSubmit}
-                                className="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-700 transition-colors"
+                                disabled={!hasClasses}
+                                className="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
                             >
                                 Save Attendance
                             </button>
                         </div>
                     </div>
                 </div>
-
-                {/* AttendanceLog component instance */}
             </div>
-        </TeacherLayout>
+        </>
     );
 };
+
+Attendance.layout = (page) => <TeacherLayout children={page} />;
 
 export default Attendance;

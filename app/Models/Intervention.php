@@ -7,22 +7,32 @@ use Illuminate\Database\Eloquent\Model;
 class Intervention extends Model
 {
     protected $fillable = [
-        'enrollment_id', // or 'student_id' depending on your relationship setup
+        'enrollment_id',
         'type',
         'status',
         'notes',
     ];
 
+    public function enrollment()
+    {
+        return $this->belongsTo(Enrollment::class);
+    }
+
+    public function tasks()
+    {
+        return $this->hasMany(InterventionTask::class);
+    }
+
     // Optional: Helper to get readable names
     public static function getTypes()
     {
         return [
-            'academic_quiz' => 'Tier 1: Remedial Quiz',
-            'automated_nudge' => 'Tier 1: Automated Nudge',
+            'automated_nudge' => 'Tier 1: Reminder Nudge',
             'task_list' => 'Tier 2: Goal Checklist',
-            'extension_grant' => 'Tier 2: Grant Extension',
+            'extension_grant' => 'Tier 2: Deadline Extension',
             'parent_contact' => 'Tier 2: Parent Contact',
-            'counselor_referral' => 'Tier 3: Counselor Referral',
+            'academic_agreement' => 'Tier 3: Academic Agreement',
+            'one_on_one_meeting' => 'Tier 3: One-on-One Meeting',
         ];
     }
 }

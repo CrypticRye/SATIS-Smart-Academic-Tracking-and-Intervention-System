@@ -3,6 +3,9 @@ import ApplicationLogo from "../Components/ApplicationLogo";
 import Dropdown from "../Components/Dropdown";
 import NavLink from "../Components/NavLink";
 import ResponsiveNavLink from "../Components/ResponsiveNavLink";
+import NotificationBadge, {
+    NotificationDot,
+} from "../Components/NotificationBadge";
 import { Link, usePage } from "@inertiajs/react";
 import UserPicture from "../../assets/user.png";
 import { LoadingProvider } from "../Context/LoadingContext";
@@ -19,9 +22,12 @@ import {
 } from "lucide-react";
 
 export default function TeacherLayout({ children }) {
-    const { auth } = usePage().props;
+    const { auth, notifications } = usePage().props;
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
+
+    // Get pending interventions count from shared notifications
+    const pendingInterventions = notifications?.pendingInterventions || 0;
 
     // --- (NEW) Teacher Navigation Items (Based on our discussion) ---
     const menuItems = [
@@ -30,6 +36,7 @@ export default function TeacherLayout({ children }) {
             label: "Dashboard",
             destination: "teacher.dashboard",
             activeCheck: "teacher.dashboard",
+            showBadge: false,
         },
         {
             icon: <CalendarCheck size={18} />,
@@ -37,6 +44,7 @@ export default function TeacherLayout({ children }) {
             // We will need to create this route
             destination: "teacher.attendance.index",
             activeCheck: "teacher.attendance.*",
+            showBadge: false,
         },
         {
             icon: <BookOpen size={18} />,
@@ -44,6 +52,7 @@ export default function TeacherLayout({ children }) {
             // We will need to create this route
             destination: "teacher.classes.index",
             activeCheck: "teacher.classes.*",
+            showBadge: false,
         },
         {
             icon: <ClipboardList size={18} />,
@@ -51,6 +60,8 @@ export default function TeacherLayout({ children }) {
             // We will need to create this route
             destination: "teacher.interventions.index",
             activeCheck: "teacher.interventions.*",
+            showBadge: true, // Show notification badge on interventions
+            badgeCount: pendingInterventions,
         },
     ];
 
@@ -96,7 +107,7 @@ export default function TeacherLayout({ children }) {
                                                 }
                                                 active={isActive}
                                                 // This className logic is correct for the Breeze NavLink
-                                                className={`inline-flex items-center gap-2 px-1 pt-1 border-b-2 text-sm font-medium
+                                                className={`relative inline-flex items-center gap-2 px-1 pt-1 border-b-2 text-sm font-medium
                                                 ${
                                                     isActive
                                                         ? "border-indigo-500 text-indigo-600" // Active
@@ -111,6 +122,15 @@ export default function TeacherLayout({ children }) {
                                             >
                                                 {item.icon}
                                                 {item.label}
+                                                {item.showBadge &&
+                                                    item.badgeCount > 0 && (
+                                                        <span className="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                                                            {item.badgeCount >
+                                                            99
+                                                                ? "99+"
+                                                                : item.badgeCount}
+                                                        </span>
+                                                    )}
                                             </NavLink>
                                         );
                                     })}
@@ -119,9 +139,23 @@ export default function TeacherLayout({ children }) {
 
                             {/* 2. Right Side: Bell & Profile */}
                             <div className="hidden sm:flex sm:items-center sm:ml-6">
-                                <button className="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700">
+                                <Link
+                                    href={
+                                        route().has(
+                                            "teacher.interventions.index"
+                                        )
+                                            ? route(
+                                                  "teacher.interventions.index"
+                                              )
+                                            : "#"
+                                    }
+                                    className="relative p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                                >
                                     <Bell size={24} />
-                                </button>
+                                    <NotificationBadge
+                                        count={pendingInterventions}
+                                    />
+                                </Link>
 
                                 <div className="ml-3 relative">
                                     <Dropdown>
@@ -216,6 +250,14 @@ export default function TeacherLayout({ children }) {
                                     >
                                         <div className="flex items-center gap-2">
                                             {item.icon} {item.label}
+                                            {item.showBadge &&
+                                                item.badgeCount > 0 && (
+                                                    <span className="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                                                        {item.badgeCount > 99
+                                                            ? "99+"
+                                                            : item.badgeCount}
+                                                    </span>
+                                                )}
                                         </div>
                                     </ResponsiveNavLink>
                                 );
